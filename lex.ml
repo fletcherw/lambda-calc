@@ -52,14 +52,15 @@ let rec charlist_to_int (c : char list) (acc : int) : int option =
             if isdigit ch
             then Some (10 * acc + (digit_to_int ch))
             else None
-    | ch::chs ->
-            (match (ch, isdigit ch) with
-            | (_, true) -> charlist_to_int chs (10 * acc + digit_to_int ch)
-            | ('-' , _) ->
-                    (match charlist_to_int chs acc with
+    | ch1::ch2::chs ->
+            (match (ch1, ch2, isdigit ch1) with
+            | (_, '-', _) -> None
+            | (_, _, true) -> charlist_to_int (ch2::chs) (10 * acc + digit_to_int ch1)
+            | ('-', _, _) ->
+                    (match charlist_to_int (ch2::chs) acc with
                      | None -> None
                      | Some(n) -> Some(-1 * n))
-            | (_, _) -> None)
+            | (_, _, _) -> None)
 
 let rec peelint' (c : char list) : (char list * char list) option =
     match c with
@@ -102,20 +103,59 @@ let rec lex' (c : char list) (t : token list) : token list =
                | '(' -> lex' chs (LparTok::t)
                | ')' -> lex' chs (RparTok::t)
                | '-' ->
-                (match t with
-                | IntTok(_)::ts -> lex' chs (MinusTok::t)
-                | RparTok::ts -> lex' chs (MinusTok::t)
-                | _ ->
-                  (match peelint c with
-                    | None -> MinusTok::t
-                    | Some(i, r) -> lex' r (IntTok(i)::t)
-                  ))
+                   (match t with
+                    | IntTok(_)::ts -> lex' chs (MinusTok::t)
+                    | RparTok::ts -> lex' chs (MinusTok::t)
+                    | _ ->
+                       (match peelint c with
+                        | None -> MinusTok::t
+                        | Some(i, r) -> lex' r (IntTok(i)::t)
+                      ))
                | _ ->
-                (match peelint c with
+                   (match peelint c with
                     | None -> raise LexError
                     | Some(i, r) -> lex' r (IntTok(i)::t)))
 
 let rec lex (s : string) : token list = List.rev (lex' (explode s) [])
 
-let lextests () : bool = true
+let lextests () : unit =
+    let explode_tests =
+        (explode "" = []) &&
+        (explode "123" = ['1';'2';'3']) in
+    if not explode_tests then print_endline "explode tests failed";
+
+    let charlist_to_int_tests =
+        (charlist_to_int [] 0 = None) &&
+        (charlist_to_int ['#'] 0 = None) &&
+        (charlist_to_int ['3'] 0 = Some 3) &&
+        (charlist_to_int ['-';'3'] 0 = Some (-3)) &&
+        (charlist_to_int ['3';'1';'4';'0';'5'] 0 = Some 31405) &&
+        (charlist_to_int ['3';'1';'-';'0';'5'] 0 = None) in
+    if not charlist_to_int_tests then print_endline "charlist_to_int tests failed";
+
+    let peelint_tests =
+        (peelint [] = None) &&
+        (peelint ['-'] = None) &&
+        (peelint ['x'] = None) &&
+        (peelint ['2'] = Some (2, [])) &&
+        (peelint ['-';'2'] = Some (-2, [])) &&
+        (peelint ['2';'-'] = Some (2, ['-'])) &&
+        (peelint ['2';'-';'3'] = Some (2, ['-';'3'])) &&
+        (peelint ['2';'-';'a'] = Some (2, ['-';'a'])) &&
+        (peelint ['2';'5';'1';'x'] = Some (251, ['x'])) &&
+        (peelint ['-';'2';'5';'1';'x'] = Some (-251, ['x'])) in
+    if not peelint_tests then print_endline "peelint tests failed";
+
+    let lex_tests =
+        (lex "" = []) &&
+        (lex "2" = [IntTok 2]) &&
+        (lex "-2" = [IntTok (-2)]) &&
+        (lex "2+2" = [IntTok 2;PlusTok;IntTok 2]) &&
+        (lex "2--3" = [IntTok 2;MinusTok;IntTok (-3)]) &&
+        (lex "(1+2)*3/4^5%6" =
+            [LparTok;IntTok 1;PlusTok;IntTok 2;RparTok;
+             TimesTok;IntTok 3;DivTok;IntTok 4;ExpTok;
+             IntTok 5;ModTok;IntTok 6]) in
+    if not lex_tests then print_endline "lex tests failed";
+
 
