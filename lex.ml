@@ -9,18 +9,8 @@ type token =
     | ExpTok
     | ModTok
 
-type expr =
-    | Int   of int
-    | Plus  of expr * expr
-    | Minus of expr * expr
-    | Times of expr * expr
-    | Div   of expr * expr
-    | Exp   of expr * expr
-    | Mod   of expr * expr
-
 exception LexError
 exception DigitError
-
 
 let explode (s : string) : char list =
     let rec exp i l =
@@ -126,3 +116,6 @@ let rec lex' (c : char list) (t : token list) : token list =
                     | Some(i, r) -> lex' r (IntTok(i)::t)))
 
 let rec lex (s : string) : token list = List.rev (lex' (explode s) [])
+
+let lextests () : bool = true
+
