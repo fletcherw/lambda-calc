@@ -22,16 +22,24 @@ type expr =
 
 exception ParseError of string
 exception LexError
-exception DigitError
 
 
 (* lexing helper functions *)
 
+(* explode : string -> char list
+ * REQUIRES: true
+ * ENSURES: explode s = s', where s' is the character list representation
+ *          of s as a string
+ *)
 let explode (s : string) : char list =
     let rec exp i l =
         if i < 0 then l else exp (i-1) (s.[i] :: l) in
     exp (String.length s - 1) []
 
+(* isdigit : char -> bool
+ * REQUIRES: true
+ * ENSURES: isdigit c == true iff c is a digit
+ *)
 let isdigit (c : char) : bool =
     match c with
     | '0' -> true
@@ -46,6 +54,10 @@ let isdigit (c : char) : bool =
     | '9' -> true
     | _   -> false
 
+(* digit_to_int : char -> int
+ * REQUIRES: c is a digit
+ * ENSURES: (digit_to_int c) is the integer corresponding to c
+ *)
 let digit_to_int (c : char) : int =
     match c with
     | '0' -> 0
@@ -58,8 +70,14 @@ let digit_to_int (c : char) : int =
     | '7' -> 7
     | '8' -> 8
     | '9' -> 9
-    | _   -> raise DigitError
+    | _   -> raise (Failure "c was not a digit")
 
+(* charlist_to_int : char list -> int -> int option
+ * REQUIRES: true
+ * ENSURES: if c is a string of digits (optionally preceded with a minus sign),
+ *          then charlist_to_int c 0 yields i, where i is the decimal
+ *          representation of c.
+ *)
 let rec charlist_to_int (c : char list) (acc : int) : int option =
     match c with
     | [] -> None
@@ -70,13 +88,20 @@ let rec charlist_to_int (c : char list) (acc : int) : int option =
     | ch1::ch2::chs ->
             (match (ch1, ch2, isdigit ch1) with
             | (_, '-', _) -> None
-            | (_, _, true) -> charlist_to_int (ch2::chs) (10 * acc + digit_to_int ch1)
+            | (_, _, true) -> charlist_to_int (ch2::chs)
+                                              (10 * acc + digit_to_int ch1)
             | ('-', _, _) ->
                     (match charlist_to_int (ch2::chs) acc with
                      | None -> None
                      | Some(n) -> Some(-1 * n))
-                    | (_, _, _) -> None)
+            | (_, _, _) -> None)
 
+(* peelint : char list -> (char list * char list) option
+ * REQUIRES: true
+ * ENSURES: if there is some string of digits i (possibly prefixed
+ *          with a minus sign) and some char list c' such that i @ c' == c,
+ *          peelint c == Some(i, c'). Otherwise, peelint c == None
+ *)
 let rec peelint' (c : char list) : (char list * char list) option =
     match c with
     | []    -> None
@@ -96,6 +121,13 @@ let rec peelint' (c : char list) : (char list * char list) option =
                      | Some(n, r) -> Some(c1::n, r))
                             | (_, _, _) -> None)
 
+(* peelint : char list -> (int * char list) option
+ * REQUIRES: true
+ * ENSURES: if there is some string of digits i (possibly prefixed
+ *          with a minus sign) with numerical representation i' and some
+ *          char list c' such that i @ c' == c, peelint c == Some(i', c').
+ *          Otherwise, peelint c == None
+ *)
 let peelint (c : char list) : (int * char list) option =
     match peelint' c with
     | None -> None
@@ -104,13 +136,14 @@ let peelint (c : char list) : (int * char list) option =
             | None -> None
             | Some(i) -> Some(i, r))
 
-            (* parse helper functions *)
+(* parse helper functions *)
 
+(* precedence : token -> int
+ * REQUIRES: t is an operator token
+ * ENSURES: precedence t yields the precedence ranking of t
+ *)
 let precedence (t : token) : int =
     match t with
-    | IntTok(_) -> 0
-    | LparTok   -> 0
-    | RparTok   -> 0
     | PlusTok   -> 3
     | MinusTok  -> 3
     | NegTok    -> 6
@@ -118,14 +151,17 @@ let precedence (t : token) : int =
     | DivTok    -> 4
     | ExpTok    -> 5
     | ModTok    -> 4
+    | _         -> raise (Failure "precedence called on non-operator token")
 
-type assoc = Left | Right | Neither
+type assoc = Left | Right
 
+(* associativity : token -> assoc
+ * REQUIRES: t is an operator token
+ * ENSURES: associativity t == Right if t is right associative and Left if
+ *          t is left associative
+ *)
 let associativity (t : token) : assoc =
     match t with
-    | IntTok(_) -> Neither
-    | LparTok   -> Neither
-    | RparTok   -> Neither
     | PlusTok   -> Left
     | MinusTok  -> Left
     | NegTok    -> Left
@@ -133,7 +169,14 @@ let associativity (t : token) : assoc =
     | DivTok    -> Left
     | ExpTok    -> Right
     | ModTok    -> Left
+    | _         -> raise (Failure "associativity called on non-operator token")
 
+(* binop2expr : token -> (expr * expr) -> expr
+ * REQUIRES: t is a binary operator token
+ * ENSURES: binop2expr t yields a function which takes in an expression tuple
+ *          and returns the result of applying the operator t to those
+ *          two expressions.
+ *)
 let binop2expr (t : token) : ((expr * expr) -> expr) =
     match t with
     | PlusTok   -> fun (e1, e2) -> (Plus (e1, e2))
@@ -142,9 +185,13 @@ let binop2expr (t : token) : ((expr * expr) -> expr) =
     | DivTok    -> fun (e1, e2) -> (Div (e1, e2))
     | ExpTok    -> fun (e1, e2) -> (Exp (e1, e2))
     | ModTok    -> fun (e1, e2) -> (Mod (e1, e2))
-    | _         -> raise (ParseError "binop2expr called on non-binary op")
+    | _         -> raise (Failure "binop2expr called on non-binary operator")
 
-
+(* lex' : char list -> token list -> token list
+ * REQUIRES: true
+ * ENSURES: lex' c t == (lex' c []) @ t, and lex' c [] is the token stream that
+ *          results from lexing c, in reverse order.
+ *)
 let rec lex' (c : char list) (t : token list) : token list =
     match c with
        | [] -> t
@@ -172,8 +219,17 @@ let rec lex' (c : char list) (t : token list) : token list =
                         | None -> raise LexError
                         | Some(i, r) -> lex' r (IntTok(i)::t)))
 
+(* lex : string -> token list
+ * REQUIRES: true
+ * ENSURES: lex s converts s into a stream of tokens.
+ *)
 let rec lex (s : string) : token list = List.rev (lex' (explode s) [])
 
+(* lextests: unit -> unit
+ * REQUIRES: true
+ * ENSURES: if all tests pass, lextests () prints nothing, otherwise it
+ *          notes which tests failed.
+ *)
 let lextests () : unit =
     let explode_tests =
         (explode "" = []) &&
@@ -187,7 +243,8 @@ let lextests () : unit =
         (charlist_to_int ['-';'3'] 0 = Some (-3)) &&
         (charlist_to_int ['3';'1';'4';'0';'5'] 0 = Some 31405) &&
         (charlist_to_int ['3';'1';'-';'0';'5'] 0 = None) in
-    if not charlist_to_int_tests then print_endline "charlist_to_int tests failed";
+    if not charlist_to_int_tests
+    then print_endline "charlist_to_int tests failed";
 
     let peelint_tests =
         (peelint [] = None) &&
@@ -214,6 +271,14 @@ let lextests () : unit =
              IntTok 5;ModTok;IntTok 6]) in
     if not lex_tests then print_endline "lex tests failed";;
 
+(* parse' : token list -> expr list -> token list -> expr list
+ * REQUIRES: true
+ * ENSURES: parse' t [] [] yields the output stack that results from the
+ *          token list t after parsing using the shunting yard algorithm,
+ *          according to the precedence and associativity values assigned
+ *          in the functions precedence and associativity. If no such parsing
+ *          exists, raises an exception.
+ *)
 let rec parse' (t : token list)
                (out : expr list)
                (opstack : token list) : expr list =
@@ -223,51 +288,69 @@ let rec parse' (t : token list)
            | RparTok::t' ->
                    (match (out, opstack) with
                    | (_, []) -> raise (ParseError "Mismatched parentheses 1")
-                   | (_, LparTok::ops) -> parse' t' out ops
-                   | (oper::out', NegTok::ops) ->
-                           parse' t (Neg(oper)::out') ops
-                   | (op1::op2::out', op::ops) ->
-                           parse' t (((binop2expr op) (op2, op1))::out') ops
+                   | (_, LparTok::opstack') -> parse' t' out opstack'
+                   | (out1::out', NegTok::opstack') ->
+                           parse' t (Neg(out1)::out') opstack'
+                   | (out2::out1::out', op::opstack') ->
+                           parse' t
+                                  (((binop2expr op) (out1, out2))::out')
+                                  opstack'
                    | (_, _) -> raise (ParseError "Missing operators 1"))
            | op1::t' ->
                    (match opstack with
-                      | [] -> parse' t' out (op1::opstack)
+                      | [] ->         parse' t' out (op1::opstack)
                       | LparTok::_ -> parse' t' out (op1::opstack)
                       | RparTok::_ -> parse' t' out (op1::opstack)
-                      | op2::ops ->
-                          (match (associativity op1,
-                                  compare (precedence op1) (precedence op2)) with
+                      | op2::opstack' ->
+                         (match (associativity op1,
+                                 compare (precedence op1) (precedence op2)) with
                                | (Right, 0) -> parse' t' out (op1::opstack)
                                | (Right, 1) -> parse' t' out (op1::opstack)
                                | (Left,  1) -> parse' t' out (op1::opstack)
                                | (_, _) ->
                                    (match (op2, out) with
-                                   | (NegTok, o1::opers) ->
-                                           parse' t ((Neg o1)::opers) opstack
-                                   | (_, o1::o2::opers) ->
-                                           parse' t (((binop2expr op2)
-                                           (o1, o2))::opers) opstack
-                                   | (_, _) -> raise
-                                               (ParseError "Missing operators 2")
+                                       | (NegTok, o1::opers) ->
+                                               parse' t ((Neg o1)::opers) ops
+                                       | (_, o2::o1::opers) ->
+                                               parse' t (((binop2expr op2)
+                                               (o1, o2))::opers) ops
+                                       | (_, _) -> raise
+                                              (ParseError "Missing operators 2")
                                                )))
            | [] ->
                    (match (out, opstack) with
                        | (_, []) -> out
-                       | (_, LparTok::ops) ->
+                       | (_, LparTok::opstack') ->
                                raise (ParseError "Mismatched parentheses 2")
-                       | (_, RparTok::ops) ->
+                       | (_, RparTok::opstack') ->
                                raise (ParseError "Mismatched parentheses 3")
-                       | (oper::opers, NegTok::ops) ->
-                               parse' t (Neg(oper)::opers) ops
-                       | (op1::op2::opers, op::ops) ->
-                               parse' t (((binop2expr op) (op2, op1))::opers) ops
+                       | (out1::out', NegTok::opstack') ->
+                               parse' t (Neg(out1)::out') opstack'
+                       | (out2::out1::out', op::opstack') ->
+                               parse' t
+                                      ( ((binop2expr op) (out1, out2))::out')
+                                      opstack'
                        | (_, _) -> raise (ParseError "Missing operators 3")))
 
+    (* parse : token list -> expr
+     * REQUIRES: true
+     * ENSURES: parse t yields the unique operator precedence parsing of the
+     *          token list t using the shunting yard algorithm, according to the
+     *          precedence and associativity values assigned in the functions
+     *          precedence and associativity. If no such parsing exists, raises an
+     *          exception.
+     *)
     let parse (t : token list) : expr =
         match (parse' t [] []) with
             | [] -> raise (ParseError "No expression")
             | [e] -> e
             | _   -> raise (ParseError "Insufficient operators")
 
+    (* compile : string -> expr
+     * REQUIRES: true
+     * ENSURES: compile s yields the operator precedence parsing of the token
+     *          stream that results when s is lexed. If no valid parsing exists
+     *          compile s raises an exception.
+     *)
     let compile (s : string) : expr = parse (lex s)
 
