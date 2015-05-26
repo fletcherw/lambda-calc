@@ -150,6 +150,7 @@ let rec lex' (c : char list) (t : token list) : token list =
        | [] -> t
        | ch :: chs ->
                (match ch with
+               | ' ' -> lex' chs t
                | '+' -> lex' chs (PlusTok::t)
                | '*' -> lex' chs (TimesTok::t)
                | '/' -> lex' chs (DivTok::t)
@@ -159,17 +160,17 @@ let rec lex' (c : char list) (t : token list) : token list =
                | ')' -> lex' chs (RparTok::t)
                | '-' ->
                        (match t with
-                    | IntTok(_)::ts -> lex' chs (MinusTok::t)
-                    | RparTok::ts -> lex' chs (MinusTok::t)
-                    | _ ->
-                            (match peelint chs with
-                        | None -> lex' chs (MinusTok::t)
-                        | Some(i, r) -> lex' r (IntTok(i)::NegTok::t)
-                        ))
+                        | IntTok(_)::ts -> lex' chs (MinusTok::t)
+                        | RparTok::ts -> lex' chs (MinusTok::t)
                         | _ ->
-                                (match peelint c with
-                    | None -> raise LexError
-                    | Some(i, r) -> lex' r (IntTok(i)::t)))
+                            (match peelint chs with
+                             | None -> lex' chs (MinusTok::t)
+                             | Some(i, r) -> lex' r (IntTok(i)::NegTok::t)
+                        ))
+               | _ ->
+                        (match peelint c with
+                        | None -> raise LexError
+                        | Some(i, r) -> lex' r (IntTok(i)::t)))
 
 let rec lex (s : string) : token list = List.rev (lex' (explode s) [])
 
@@ -214,49 +215,51 @@ let lextests () : unit =
     if not lex_tests then print_endline "lex tests failed";;
 
 let rec parse' (t : token list)
-               (operands : expr list)
-               (operators : token list) : expr list =
+               (out : expr list)
+               (opstack : token list) : expr list =
     (match t with
-           | (IntTok i)::t' -> parse' t' ((Int i)::operands) operators
-           | LparTok::t' -> parse' t' operands ((LparTok)::operators)
+           | (IntTok i)::t' -> parse' t' ((Int i)::out) opstack
+           | LparTok::t' -> parse' t' out ((LparTok)::opstack)
            | RparTok::t' ->
-                   (match (operators, operands) with
-                   | ([], _) -> raise (ParseError "Mismatched parentheses 1")
-                   | (LparTok::ops, _) -> parse' t' operands ops
-                   | (NegTok::ops, oper::opers) ->
-                           parse' t' (Neg(oper)::opers) ops
-                   | (op::ops, op1::op2::opers) ->
-                           parse' t' (((binop2expr op) (op2, op1))::opers) ops
+                   (match (out, opstack) with
+                   | (_, []) -> raise (ParseError "Mismatched parentheses 1")
+                   | (_, LparTok::ops) -> parse' t' out ops
+                   | (oper::out', NegTok::ops) ->
+                           parse' t (Neg(oper)::out') ops
+                   | (op1::op2::out', op::ops) ->
+                           parse' t (((binop2expr op) (op2, op1))::out') ops
                    | (_, _) -> raise (ParseError "Missing operators 1"))
            | op1::t' ->
-                   (match operators with
-                      | [] -> parse' t' operands (op1::operators)
+                   (match opstack with
+                      | [] -> parse' t' out (op1::opstack)
+                      | LparTok::_ -> parse' t' out (op1::opstack)
+                      | RparTok::_ -> parse' t' out (op1::opstack)
                       | op2::ops ->
                           (match (associativity op1,
                                   compare (precedence op1) (precedence op2)) with
-                               | (Right, 0) -> parse' t' operands (op1::operators)
-                               | (Right, 1) -> parse' t' operands (op1::operators)
-                               | (Left,  1) -> parse' t' operands (op1::operators)
+                               | (Right, 0) -> parse' t' out (op1::opstack)
+                               | (Right, 1) -> parse' t' out (op1::opstack)
+                               | (Left,  1) -> parse' t' out (op1::opstack)
                                | (_, _) ->
-                                   (match (op2, operands) with
+                                   (match (op2, out) with
                                    | (NegTok, o1::opers) ->
-                                           parse' t ((Neg o1)::opers) operators
+                                           parse' t ((Neg o1)::opers) opstack
                                    | (_, o1::o2::opers) ->
                                            parse' t (((binop2expr op2)
-                                           (o1, o2))::opers) operators
+                                           (o1, o2))::opers) opstack
                                    | (_, _) -> raise
                                                (ParseError "Missing operators 2")
                                                )))
            | [] ->
-                   (match (operators, operands) with
-                       | ([], _) -> operands
-                       | (LparTok::ops, _) ->
+                   (match (out, opstack) with
+                       | (_, []) -> out
+                       | (_, LparTok::ops) ->
                                raise (ParseError "Mismatched parentheses 2")
-                       | (RparTok::ops, _) ->
+                       | (_, RparTok::ops) ->
                                raise (ParseError "Mismatched parentheses 3")
-                       | (NegTok::ops, oper::opers) ->
+                       | (oper::opers, NegTok::ops) ->
                                parse' t (Neg(oper)::opers) ops
-                       | (op::ops, op1::op2::opers) ->
+                       | (op1::op2::opers, op::ops) ->
                                parse' t (((binop2expr op) (op2, op1))::opers) ops
                        | (_, _) -> raise (ParseError "Missing operators 3")))
 
@@ -266,4 +269,5 @@ let rec parse' (t : token list)
             | [e] -> e
             | _   -> raise (ParseError "Insufficient operators")
 
+    let compile (s : string) : expr = parse (lex s)
 
