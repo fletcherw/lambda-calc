@@ -23,6 +23,16 @@ type expr =
 exception ParseError of string
 exception LexError
 
+(* pow : int -> int -> int
+ * REQUIRES: true
+ * ENSURES: pow a == f, where f b = a to the bth power
+ *)
+let rec pow a = function
+  | 0 -> 1
+  | 1 -> a
+  | n ->
+    let b = pow a (n / 2) in
+    b * b * (if n mod 2 = 0 then 1 else a)
 
 (* lexing helper functions *)
 
@@ -309,11 +319,11 @@ let rec parse' (t : token list)
                                | (Left,  1) -> parse' t' out (op1::opstack)
                                | (_, _) ->
                                    (match (op2, out) with
-                                       | (NegTok, o1::opers) ->
-                                               parse' t ((Neg o1)::opers) ops
-                                       | (_, o2::o1::opers) ->
+                                       | (NegTok, o1::out') ->
+                                               parse' t ((Neg o1)::out') opstack'
+                                       | (_, o2::o1::out') ->
                                                parse' t (((binop2expr op2)
-                                               (o1, o2))::opers) ops
+                                               (o1, o2))::out') opstack'
                                        | (_, _) -> raise
                                               (ParseError "Missing operators 2")
                                                )))
@@ -353,4 +363,20 @@ let rec parse' (t : token list)
      *          compile s raises an exception.
      *)
     let compile (s : string) : expr = parse (lex s)
+
+    (* evaluate : expr -> int
+     * REQUIRES: true
+     * ENSURES: evaluate e evaluates the computation tree e and returns
+     *          the resulting value
+     *)
+    let rec evaluate (e : expr) : int =
+        match e with
+            | Int(i)        -> i
+            | Neg(e1)       -> (evaluate e1) * -1
+            | Plus(e1, e2)  -> (evaluate e1) + (evaluate e2)
+            | Minus(e1, e2) -> (evaluate e1) - (evaluate e2)
+            | Times(e1, e2) -> (evaluate e1) * (evaluate e2)
+            | Div(e1, e2)   -> (evaluate e1) / (evaluate e2)
+            | Exp(e1, e2)   -> pow (evaluate e1) (evaluate e2)
+            | Mod(e1, e2)   -> (evaluate e1) mod (evaluate e2)
 
