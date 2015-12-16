@@ -5,10 +5,10 @@ A simple integer calculator in O'Caml. Lexes, parses, compiles and evaluates arb
 
 Open up your favorite O'Caml interpreter and enter
 
-  #use "calc.ml";;
+    #use "calc.ml";;
 
 to import all of functions.  Then, enter
 
-  repl ();;
+    repl ();;
 
 to enter the read-eval-print loop where you can do integer math to your heart's content.
