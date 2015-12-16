@@ -342,7 +342,7 @@ let rec parse' (t : token list)
                                       opstack'
                        | (_, _) -> raise (ParseError "Missing operators 3")))
 
-    (* parse : token list -> expr
+    (* parse : token list -> expr option
      * REQUIRES: true
      * ENSURES: parse t yields the unique operator precedence parsing of the
      *          token list t using the shunting yard algorithm, according to the
@@ -350,19 +350,19 @@ let rec parse' (t : token list)
      *          precedence and associativity. If no such parsing exists, raises an
      *          exception.
      *)
-    let parse (t : token list) : expr =
-        match (parse' t [] []) with
-            | [] -> raise (ParseError "No expression")
-            | [e] -> e
-            | _   -> raise (ParseError "Insufficient operators")
+    let parse (t : token list) : expr option =
+      match (try parse' t [] [] with | _ -> []) with
+            | [] -> None 
+            | [e] -> Some(e)
+            | _   -> None 
 
-    (* compile : string -> expr
+    (* compile : string -> expr option
      * REQUIRES: true
      * ENSURES: compile s yields the operator precedence parsing of the token
      *          stream that results when s is lexed. If no valid parsing exists
      *          compile s raises an exception.
      *)
-    let compile (s : string) : expr = parse (lex s)
+    let compile (s : string) : expr option = parse (try lex s with _ -> [])
 
     (* evaluate : expr -> int
      * REQUIRES: true
@@ -380,3 +380,17 @@ let rec parse' (t : token list)
             | Exp(e1, e2)   -> pow (evaluate e1) (evaluate e2)
             | Mod(e1, e2)   -> (evaluate e1) mod (evaluate e2)
 
+    (* repl : unit -> unit
+     * REQUIRES: true
+     * ENSURES: true
+     *) 
+    let rec repl () =
+      let _ = print_string "> " in
+      let input = read_line () in
+      match compile(input) with
+          | None -> let _ = 
+            print_string "Error!\n\n" in repl ()
+          | Some(e) -> let _ =
+            print_string (string_of_int (evaluate e) ^ "\n\n") in repl ()
+
+    
