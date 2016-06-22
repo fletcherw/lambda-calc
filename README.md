@@ -1,14 +1,16 @@
 # lambda-calc
-A simple integer calculator in O'Caml. Lexes, parses, compiles and evaluates arbitrary integer mathematical expressions.
+A simple integer calculator in O'Caml. Lexes, parses, compiles and evaluates integer mathematical expressions.
 
 # usage
 
-Open up your favorite O'Caml interpreter and enter
+Ensure you have ocamlc and ocamlopt installed. Then
 
-    #use "calc.ml";;
+    $ cd src
+    $ make
+    $ cd ..
 
-to import all of functions.  Then, enter
+to build the interpreter.  Then, run
 
-    repl ();;
+    $ ./repl 
 
 to enter the read-eval-print loop where you can do integer math to your heart's content.

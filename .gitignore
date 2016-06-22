@@ -16,6 +16,9 @@ _build/
 *.byte
 *.native
 
+# target
+repl
+
 # oasis generated files
 setup.data
 setup.log
