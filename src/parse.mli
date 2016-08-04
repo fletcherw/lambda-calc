@@ -10,4 +10,5 @@ type expr =
 
 exception ParseError of string
 
-val parse : Lex.token list -> expr option
+(* throws ParseError when parsing fails *)
+val parse : Lex.token list -> expr

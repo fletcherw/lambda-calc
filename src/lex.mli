@@ -10,7 +10,7 @@ type token =
     | ExpTok
     | ModTok
 
-exception LexError
+exception LexError of string
 
 (* lex : string -> token list
  * ENSURES: lex s converts s into a stream of tokens.

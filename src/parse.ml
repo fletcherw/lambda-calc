@@ -132,10 +132,8 @@ let rec parse' (t : token list)
      *          precedence and associativity. If no such parsing exists, raises an
      *          exception.
      *)
-    let parse (t : token list) : expr option =
-      match (try parse' t [] [] with | _ -> []) with
-            | [] -> None 
-            | [e] -> Some(e)
-            | _   -> None 
+    let parse (t : token list) : expr =
+      match parse' t [] [] with
+            | [e] -> e
+            | _   -> raise (ParseError "Invalid expression") 
 
-    

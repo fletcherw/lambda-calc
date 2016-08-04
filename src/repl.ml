@@ -1,4 +1,5 @@
 open Parse
+open Lex
 
 (* pow : int -> int -> int
  * REQUIRES: true
@@ -10,13 +11,6 @@ let rec pow a = function
   | n ->
     let b = pow a (n / 2) in
     b * b * (if n mod 2 = 0 then 1 else a)
-
-(* compile : string -> expr option
- * ENSURES: compile s yields the operator precedence parsing of the token
- *          stream that results when s is lexed. If no valid parsing exists
- *          compile s raises an exception.
- *)
-let compile (s : string) : expr option = parse (try Lex.lex s with _ -> [])
 
 (* evaluate : expr -> int
  * REQUIRES: true
@@ -34,17 +28,18 @@ let rec evaluate (e : expr) : int =
         | Exp(e1, e2)   -> pow (evaluate e1) (evaluate e2)
         | Mod(e1, e2)   -> (evaluate e1) mod (evaluate e2)
 
-(* repl : unit -> unit
+(* repl : unit -> 'a
  * REQUIRES: true
  * ENSURES: true
  *) 
 let rec repl () =
   let _ = print_string "> " in
   let input = read_line () in
-  match compile(input) with
-      | None -> let _ = 
-        print_string "Error!\n\n" in repl ()
-      | Some(e) -> let _ =
-        print_string (string_of_int (evaluate e) ^ "\n\n") in repl ()
+  (try (let expression = parse (lex input) in 
+  print_string (string_of_int (evaluate expression) ^ "\n\n"))
+  with 
+  | LexError(s) -> print_string ("Lex Error: " ^ s ^ "\n\n")
+  | ParseError(s) -> print_string ("Parse Error: " ^ s ^ "\n\n"));
+  repl ()
 
 let () = repl ()

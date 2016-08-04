@@ -10,7 +10,7 @@ type token =
     | ExpTok
     | ModTok
 
-exception LexError
+exception LexError of string
 
 (* explode : string -> char list
  * REQUIRES: true
@@ -151,7 +151,7 @@ let rec lex' (c : char list) (t : token list) : token list =
                         ))
                | _ ->
                         (match peelint c with
-                        | None -> raise LexError
+                        | None -> raise (LexError "Unidentified token")
                         | Some(i, r) -> lex' r (IntTok(i)::t)))
 
 (* lex : string -> token list
