@@ -149,16 +149,26 @@ let rec lex' (c : char list) (t : token list) : token list =
                              | None -> lex' chs (MinusTok::t)
                              | Some(i, r) -> lex' r (IntTok(i)::NegTok::t)
                         ))
+               | '.' ->
+                       (match chs with
+                        | next::_ when isdigit next -> 
+                                raise (LexError "Decimal numbers not permitted")
+                        | _ -> raise (LexError "Unidentified token '.'"))
                | _ ->
                         (match peelint c with
-                        | None -> raise (LexError "Unidentified token")
+                        | None -> 
+                            raise (LexError ("Unidentified token '" ^
+                                              Char.escaped ch ^ "'"))
                         | Some(i, r) -> lex' r (IntTok(i)::t)))
 
 (* lex : string -> token list
  * REQUIRES: true
  * ENSURES: lex s converts s into a stream of tokens.
  *)
-let rec lex (s : string) : token list = List.rev (lex' (explode s) [])
+let rec lex (s : string) : token list = 
+  if s = "quit" || s = "Quit" || s = "exit" || s = "Exit" 
+  then (print_string ("Thanks for flying lambda-calc!\n"); exit 0)
+  else List.rev (lex' (explode s) [])
 
 (* lextests: unit -> unit
  * REQUIRES: true
