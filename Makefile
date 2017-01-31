@@ -2,12 +2,16 @@
 all: repl
 
 .PHONY: repl
-repl: 
+repl:
 	cd src && make repl
+
+.PHONY: test
+test:
+	cd src && make test
 
 .PHONY: clean
 clean: cleanbuild
-	rm repl
+	rm -f repl test
 
 .PHONY: cleanbuild
 cleanbuild:

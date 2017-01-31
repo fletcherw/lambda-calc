@@ -3,7 +3,7 @@ An integer-math calculator in OCaml. Lexes, parses, compiles and evaluates mathe
 
 Both lexer and parser are written without the use of generator tools such as lex or yacc/bison. The parser is built using Dijkstra's [Shunting-yard algorithm][1]. After parsing, evaluation is performed directly on the Abstract Syntax Tree.
 
-Operations supported include addition, multiplication, division, modulo, exponentiation, unary negation, and arbitrary parenthesized expressions.
+Operations supported include addition, multiplication, division, modulo, exponentiation, negative numbers, and arbitrary parenthesized expressions. Additionally, assigning to variables using ```let``` and using the result of the previous calculation from ```_``` is also supported.
 
 # example 
 

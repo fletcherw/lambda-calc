@@ -18,6 +18,7 @@ _build/
 
 # target
 repl
+test
 
 # oasis generated files
 setup.data

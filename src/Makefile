@@ -1,11 +1,14 @@
 .PHONY: all
 all: repl
 
-SOURCES=lex.ml parse.ml repl.ml
+SOURCES=util.ml lex.ml parse.ml repl.ml
 INTERFACES=$(SOURCES:.ml=.mli)
 
-repl: $(SOURCES) interfaces
-	ocamlopt -o ../repl $(SOURCES) 
+repl: main.ml $(SOURCES) interfaces
+	ocamlopt -o ../repl $(SOURCES) main.ml
+
+test: test.ml $(SOURCES) interfaces
+	ocamlopt -o ../test $(SOURCES) test.ml
 
 interfaces: $(INTERFACES)
 	ocamlc -c $(INTERFACES)
