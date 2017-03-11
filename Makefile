@@ -1,5 +1,5 @@
 .PHONY: all
-all: repl
+all: repl test
 
 .PHONY: repl
 repl:

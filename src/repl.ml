@@ -1,12 +1,12 @@
 open Parse
 open Lex
 
-module StringMap = Map.Make(String) 
+module StringMap = Map.Make(String)
 
 exception UndefinedVariable of string
 
 (* pow : int -> int -> int
- * ENSURES: pow a == f, where f b = a to the bth power
+ * pow a b returns a to the bth power
  *)
 let rec pow a = function
   | 0 -> 1
@@ -16,8 +16,8 @@ let rec pow a = function
     b * b * (if n mod 2 = 0 then 1 else a)
 
 (* evaluate : int StringMap.t -> expr -> int
- * ENSURES: evaluate e evaluates the computation tree e and returns
- *          the resulting value
+ * evaluate e evaluates the computation tree e and returns
+ * the resulting value
  *)
 let rec evaluate (env : int StringMap.t) (e : expr) : int =
   let evaluate = evaluate env in
@@ -35,22 +35,24 @@ let rec evaluate (env : int StringMap.t) (e : expr) : int =
     | Exp(e1, e2)   -> pow (evaluate e1) (evaluate e2)
     | Mod(e1, e2)   -> (evaluate e1) mod (evaluate e2)
 
-(* run_repl : int StringMap.t -> 'a *) 
+(* run_repl : int StringMap.t -> 'a *)
 let rec run_repl env =
   let _ = print_string "> " in
   let input = read_line () in
-  (try 
-    (let tokens = lex input in
-     let (result_name, tokens) = 
+  (try
+    (if input = "quit" || input = "Quit" || input = "exit" || input = "Exit"
+     then (print_string ("Thanks for flying lambda-calc!\n"); exit 0)
+     else let tokens = lex input in
+     let (result_name, tokens) =
        match tokens with
        | LetTok::VarTok(i)::EqTok::rest -> (i, rest)
        | _ -> ("_", tokens) in
-     let expression = parse tokens in 
+     let expression = parse tokens in
      let result = evaluate env expression in
      let env = StringMap.add result_name result env in
      print_string ("val " ^ result_name ^ " = " ^ string_of_int result ^ "\n\n");
      run_repl env)
-  with 
+  with
     | LexError(s) -> print_string ("Lex Error: " ^ s ^ "\n\n")
     | ParseError(s) -> print_string ("Parse Error: " ^ s ^ "\n\n")
     | UndefinedVariable(i) -> print_string ("Undefined Variable: " ^ i ^ "\n\n"));
